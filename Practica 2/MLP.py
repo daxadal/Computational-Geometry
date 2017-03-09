@@ -54,28 +54,35 @@ class MLP(object):
 
     @staticmethod    
     def relu(z):
+        #your code here
         ret = np.copy(z)
         ret[z<0] = 0
         return ret
+        #--------------
         
     @staticmethod    
     def drelu(z):
+        #your code here
         ret[z<0] = 0
         ret[z>=0] = 1
         return ret
+        #--------------
         
     @staticmethod
     def identity(z):
+        #your code here
         return z
-    
+        #--------------    
     @staticmethod
     def didentity(z):
+        #your code here
         return [1]*z.shape[0]
-    
+        #--------------    
     @staticmethod
     def softmax(z):
+        #your code here
         return np.exp(z) / np.sum(np.exp(z))
-   
+        #--------------   
      #%% cost functions
     @staticmethod
     def binary_cross_entropy(y, t_data):
@@ -85,13 +92,16 @@ class MLP(object):
     
     @staticmethod
     def softmax_cross_entropy(y, t_data):
+        #your code here
         return -np.sum(t_data * np.log(y),
                        axis=0)
+        #--------------
     
     @staticmethod
     def cost_L2(y, t_data):
+        #your code here
         return np.sum( np.linalg.norm(y-tdata)**2 ) / 2
-    
+        #--------------    
     #%% simple weights initialization
     
     def init_weights(self):
@@ -139,6 +149,9 @@ class MLP(object):
     
         #your code here
         
+        
+        #----
+
         self.grad_w_list = grad_w_list
         self.grad_b_list = grad_b_list
     
@@ -164,6 +177,7 @@ class MLP(object):
             for batch in range(nb_batches):
                 #your code here
                 pass
+                #----
         
                 #self.get_activations_and_units(x_batch)
                     
