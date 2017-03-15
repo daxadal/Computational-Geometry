@@ -153,10 +153,23 @@ class MLP(object):
         grad_w_list = []
         grad_b_list = []
     
+        """
+        lista de z y activacion es de tamano m+1
+        mientras que lista de errores y ws son de tamano m
+        y W es matriz  y error es vector (1x_), para tener resultado 
+        vector(1x_) tiene que ser error dot W
+        """
         #your code here
-        delta
-        
-        #----
+        delta = self.y - t
+        grad_b_list.append(delta, grad_b_list)
+        new_w = np.dot(delta, (self.units[-2]).T)
+        grad_w_list.append(new_w, grad_w_list)
+        for i in range(N-1):
+            new_b = self.diff_activation_functions[-2-i](self.activations[-2-i]) * new_b.dot((self.weights_list[-2-i]).T)
+            new_w = np.dot(grad_b_list[0],(self.units[-3-i]).T)
+            grad_w_list.append(new_w, grad_w_list)
+            grad_b_list.append(new_b, grad_b_list)
+        #----    
 
         self.grad_w_list = grad_w_list
         self.grad_b_list = grad_b_list
