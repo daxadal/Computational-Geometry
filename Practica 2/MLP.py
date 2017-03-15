@@ -63,6 +63,7 @@ class MLP(object):
     @staticmethod    
     def drelu(z):
         #your code here
+        ret = np.copy(z)
         ret[z<0] = 0
         ret[z>=0] = 1
         return ret
@@ -81,32 +82,33 @@ class MLP(object):
     @staticmethod
     def softmax(z):
         #your code here
-        return np.exp(z) / np.sum(np.exp(z))
+        exps = np.exp(z)
+        exps_sums = np.sum(exps, axis=1)
+        return exps / exps_sums[:, np.newaxis]
         #--------------   
      #%% cost functions
     @staticmethod
     def binary_cross_entropy(y, t_data):
-        return -np.sum(t_data * np.log(y) + (1 - t_data) * np.log(1 - y),
-                       axis=0)
+        return -np.sum(t_data * np.log(y) + (1 - t_data) * np.log(1 - y))
     
     
     @staticmethod
     def softmax_cross_entropy(y, t_data):
         #your code here
-        return -np.sum(t_data * np.log(y),
-                       axis=0)
+        return -np.sum(t_data * np.log(y))
         #--------------
     
     @staticmethod
     def cost_L2(y, t_data):
         #your code here
-        return np.sum( np.linalg.norm(y-tdata)**2 ) / 2
+        return np.sum((y-t_data)**2)/2
+        #return np.sum( np.linalg.norm(y-t_data)**2 ) / 2
         #--------------    
     #%% simple weights initialization
     
     def init_weights(self):
         
-        if self.init_seed: np.random.seed(self.seed)
+        if self.init_seed: np.random.seed(self.init_seed)
         
         
         weights_list = []
@@ -130,9 +132,13 @@ class MLP(object):
         
         for i in range(self.nb_layers):
             #your code here
-            
+            W = self.weights_list[i]
+            b = self.biases_list[i]
+            h = self.activation_functions[i]
+            activations.append(units[i].dot(W) + b)
+            units.append(h(activations[i + 1]))
+        y = units[-1]
             #----
-            pass
         self.activations = activations 
         self.units = units
         self.y = y
@@ -148,7 +154,7 @@ class MLP(object):
         grad_b_list = []
     
         #your code here
-        
+        delta
         
         #----
 
@@ -183,13 +189,13 @@ class MLP(object):
                     
             if print_cost:
                 if self.activation_functions[-1] == MLP.sigmoid:
-                    sys.stdout.write('cost = %f\r' %MLP.binary_cross_entropy(self.y, t_batch)[0])
+                    sys.stdout.write('cost = %f\r' %MLP.binary_cross_entropy(self.y, t_batch))
                     sys.stdout.flush()
                 elif self.activation_functions[-1] == MLP.softmax:
-                    sys.stdout.write('cost = %f\r' %MLP.softmax_cross_entropy(self.y, t_batch)[0])
+                    sys.stdout.write('cost = %f\r' %MLP.softmax_cross_entropy(self.y, t_batch))
                     sys.stdout.flush()
                 else:
-                    sys.stdout.write('cost = %f\r' %MLP.cost_L2(self.y, t_batch)[0])
+                    sys.stdout.write('cost = %f\r' %MLP.cost_L2(self.y, t_batch))
                     sys.stdout.flush()
 
 #%% let's experiment
@@ -222,6 +228,9 @@ if __name__ == '__main__':
 
 
 #%% Train begins
-    mlp.train(x_data, t_data,
-              epochs=100, batch_size=5, epsilon=0.1, print_cost=True)
+#    mlp.train(x_data, t_data,
+#              epochs=100, batch_size=5, epsilon=0.1, print_cost=True)
+    mlp.get_activations_and_units(x_data)
+    sys.stdout.write('activations = %r\n' %mlp.activations)
+    sys.stdout.write('units = %r\n' %mlp.units)
 
