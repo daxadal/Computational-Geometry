@@ -164,8 +164,8 @@ class MLP(object):
         grad_w = np.einsum('ni,nj->nji', delta, self.units[-2])
         grad_w_list = [np.sum(grad_w, axis=0)/N]
         grad_b_list = [np.sum(delta, axis=0)/N]
-        for k in range(nb_layers-2, -1, -1):
-            delta = np.einsum('ni,nij,nj->ni',
+        for k in range(self.nb_layers-2, -1, -1):
+            delta = np.einsum('ni,ij,nj->ni',
                               self.diff_activation_functions[k](self.activations[k+1]),
                               self.weights_list[k+1],
                               delta)
@@ -209,7 +209,13 @@ class MLP(object):
             np.random.shuffle(index_list)
             for batch in range(nb_batches):
                 #your code here
-                pass
+                indices_batch = index_list[batch * batch_size : (batch+1) * batch_size]
+                x_batch = np.array(x_data)[indices_batch]
+                t_batch = np.array(t_data)[indices_batch]
+                self.get_gradients(x_batch, t_batch, beta)
+                for i in range(self.nb_layers):
+                    self.weights_list[i] -= epsilon * self.grad_w_list[i]
+                    self.biases_list[i] -= epsilon * self.grad_b_list[i]
                 #----
         
                 #self.get_activations_and_units(x_batch)
