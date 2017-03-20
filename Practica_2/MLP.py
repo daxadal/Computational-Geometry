@@ -131,7 +131,18 @@ class MLP(object):
     
     #%% feed forward pass
     def get_activations_and_units(self, x):
+        """
+        This function computes the list of activations, the list of units and the output value
+        activations[i] is given by: units[i].dot(W) + b
+        units[i] is given by: activation_functions[i] (activations[i + 1])
+        the output value is the last elment of the list of units
+
+        Parameters 
+        ------------
+        x : numpy.ndarray
+            input values
         
+        """
         activations = [x]
         units = [x]
         
