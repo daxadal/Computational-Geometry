@@ -4,6 +4,11 @@
 Created on Sat Mar  4 13:13:13 2017
 
 @author: Xi Chen, Eric García de Ceca, Jaime Mendizábal Roche
+Multilayer Perceptron (MLP) 
+A multilayer perceptron is a feedforward artificial neural network model 
+that has one layer or more of hidden units and nonlinear activations.
+In this module we have the following activation functions: sigmoid, tanh,
+relu(Rectified linear unit), identity, softmax
 """
 
 from __future__ import division, print_function
