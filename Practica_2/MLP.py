@@ -3,7 +3,7 @@
 """
 Created on Sat Mar  4 13:13:13 2017
 
-@author: avaldes
+@author: Xi Chen, Eric García de Ceca, Jaime Mendizábal Roche
 """
 
 from __future__ import division, print_function
