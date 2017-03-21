@@ -21,7 +21,9 @@ class MLP(object):
     def __init__(self, K_list,
                  activation_functions, diff_activation_functions,
                  init_seed=None):
-        
+        """
+        Initialize the parameters for the multilayer perceptron
+        """
         self.K_list = K_list #Lista de dimensiones (num de neuronas) de las capas
         self.nb_layers = len(K_list) - 1
         
@@ -112,7 +114,9 @@ class MLP(object):
     #%% simple weights initialization
     
     def init_weights(self):
-        
+        """ 
+        initialize node weights to random values and node biases to zeros
+        """
         if self.init_seed: np.random.seed(self.init_seed)
         
         
