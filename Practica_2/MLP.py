@@ -177,7 +177,32 @@ class MLP(object):
     
     #%% backpropagation 
     def get_gradients(self, x, t, beta=0):
-    
+        """
+        This function computes gradients of the weights and the errors using backpropagation
+        
+        Parameters 
+        ------------
+        x : numpy.ndarray
+            input values
+        t : numpy.ndarray
+            List of correct results. "1" means red_point and "0" means black_point
+        
+        Examples
+        --------
+        >>> x = np.array([[1,2,3],[4,5,6]])
+        >>> K_list = [3, 1] #final dimension
+        >>> activation_functions = [MLP.sigmoid]
+        >>> diff_activation_functions = [MLP.dsigmoid]
+        >>> mlp = MLP(K_list, activation_functions, diff_activation_functions)
+        >>> t = np.array([1,0])
+        >>> mlp.get_gradients(x,t,0)
+        >>> mlp.grad_w_list
+        [array([[-1.69174691,  0.80825309],
+        [-2.37875131,  1.12124869],
+        [-3.06575572,  1.43424428]])]
+        >>> mlp.grad_b_list
+        [array([-0.6870044,  0.3129956])]
+        """
         self.get_activations_and_units(x)
     
         N = x.shape[0]
@@ -185,12 +210,6 @@ class MLP(object):
         grad_w_list = []
         grad_b_list = []
     
-        """
-        lista de z y activacion es de tamano m+1
-        mientras que lista de errores y ws son de tamano m
-        y W es matriz  y error es vector (1x_), para tener resultado 
-        vector(1x_) tiene que ser error dot W
-        """
         #your code here
         delta = self.y-t
         grad_w = np.einsum('ni,nj->nji', delta, self.units[-2])
