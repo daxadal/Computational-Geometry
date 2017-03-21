@@ -1,9 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-Created on Sat Mar  4 13:13:13 2017
-
-@author: Xi Chen, Eric García de Ceca, Jaime Mendizábal Roche
+authors: Xi Chen, Eric García de Ceca, Jaime Mendizábal Roche
 Multilayer Perceptron (MLP) 
 A multilayer perceptron is a feedforward artificial neural network model 
 that has one layer or more of hidden units and nonlinear activations.
@@ -148,7 +146,7 @@ class MLP(object):
         
         Examples
         --------
-        >>> x=np.array([[1,2,3],[4,5,6]])
+        >>> x = np.array([[1,2,3],[4,5,6]])
         >>> K_list = [3, 1] #final dimension
         >>> activation_functions = [MLP.sigmoid]
         >>> diff_activation_functions = [MLP.dsigmoid]
@@ -227,6 +225,10 @@ class MLP(object):
             grad_w = np.einsum('ni,nj->nji', delta, self.units[k])
             grad_w_list.insert(0, np.sum(grad_w, axis=0)/N)
             grad_b_list.insert(0, np.sum(delta, axis=0)/N)
+        if beta != 0:
+            for i in range(self.nb_layers):
+                grad_w_list[i] += beta * self.weights_list[i]
+                grad_b_list[i] += beta * self.biases_list[i]
         #----    
 
         self.grad_w_list = grad_w_list
@@ -240,7 +242,23 @@ class MLP(object):
               epsilon=0.01,
               beta=0,
               print_cost=False):
-        
+        """
+        Everytime we will reorder the list of inputs and use
+        a stochastic process (a collection of batch_size random elements)
+        to train our inputs. We will do it nb_batch times.
+        And update the list of weights and the list of biases
+        Parameters 
+            ------------
+        x_data : numpy.ndarray
+            List of input values
+        t_data : numpy.ndarray
+            List of correct results. "1" means red_point and "0" means black_point
+        epochs : 
+        initialize_weights
+        epsilon : 
+        beta :
+        print_cost    : Bool
+        """
         if initialize_weights:
             self.init_weights()
         

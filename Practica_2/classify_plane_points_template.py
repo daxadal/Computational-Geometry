@@ -34,9 +34,8 @@ t_data = np.asarray([0]*nb_black + [1]*nb_red).reshape(nb_data, 1)
 D = x_data.shape[1] #initial dimension
 K = 1 #final dimension
 
-
+"""
 K_list = [D, 50, 10, K] #list of dimensions of layers
-
 
 activation_functions = [np.tanh,
                         np.tanh,
@@ -46,6 +45,20 @@ diff_activation_functions = [MLP.dtanh,
                              MLP.dtanh,
                              MLP.dsigmoid]
 
+"""
+# A naive automatic test for different values for the dimensions
+# did not yield any significant result.
+
+#A simpler alternative:
+
+K_list = [D, 20, K] #list of dimensions of layers
+# It works even with only two neurons in the hidden layer.
+
+activation_functions = [lambda x: x**2,
+                        MLP.sigmoid]
+                        
+diff_activation_functions = [lambda x: 2*x,
+                             MLP.dsigmoid]
 
 #%%
 delta = 0.01

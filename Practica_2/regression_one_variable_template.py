@@ -10,7 +10,7 @@ from __future__ import division, print_function
 import numpy as np
 import matplotlib.pyplot as plt
 
-from MLP_v2 import MLP
+from MLP import MLP
 
 def f(x):
     return np.sin(x)
@@ -33,6 +33,34 @@ activation_functions = [MLP.relu,
 diff_activation_functions = [MLP.drelu,
                              MLP.dsigmoid,
                              MLP.didentity]
+
+"""
+The results of the previous configuration vary a lot.
+
+A single hidden layer (as considered by the universal approximation theorem)
+yields also very different results, and increasing the amount of neurons does
+no greatly improve the result. The configuration would be:
+
+K_list = [D, 20, K] #list of dimensions
+
+
+
+activation_functions = [MLP.sigmoid,
+                        MLP.identity]
+diff_activation_functions = [MLP.dsigmoid,
+                             MLP.didentity]
+
+As expected, the following configuration yields an almost perfect result:
+
+K_list = [D, 1, K] #list of dimensions
+
+
+
+activation_functions = [lambda x: np.sin(x),
+                        MLP.identity]
+diff_activation_functions = [lambda x: np.cos(x),
+                             MLP.didentity]
+"""
 
 mlp = MLP(K_list, activation_functions, diff_activation_functions)
 
