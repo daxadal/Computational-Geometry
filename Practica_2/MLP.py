@@ -142,6 +142,22 @@ class MLP(object):
         x : numpy.ndarray
             input values
         
+        Examples
+        --------
+        >>> x=np.array([[1,2,3],[4,5,6]])
+        >>> K_list = [3, 1] #final dimension
+        >>> activation_functions = [MLP.sigmoid]
+        >>> diff_activation_functions = [MLP.dsigmoid]
+        >>> mlp = MLP(K_list, activation_functions, diff_activation_functions)
+        >>> mlp.get_activations_and_units(x)
+        >>> mlp.activations
+        [array([[1, 2, 3],
+        [4, 5, 6]]), array([[-0.32823445],
+        [-0.40865953]])]
+        >>> mlp.units
+        [array([[1, 2, 3],
+        [4, 5, 6]]), array([[ 0.52281352],
+        [ 0.77669704]])]
         """
         activations = [x]
         units = [x]
