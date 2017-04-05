@@ -13,6 +13,9 @@ class MLP(object):
                  activation_functions, diff_activation_functions,
                  init_seed=None):
 
+        """
+        Initialize the parameters for the multilayer perceptron
+        """
         self.K_list = K_list
         self.nb_layers = len(K_list) - 1
 
@@ -27,10 +30,10 @@ class MLP(object):
         self.grad_w_list = None
         self.grad_b_list = None
 
-        self.grad_w_averages = [0] * self.nb_layers
-        self.gradsquare_w_averages = [0] * self.nb_layers
-        self.grad_b_averages = [0] * self.nb_layers
-        self.gradsquare_b_averages = [0] * self.nb_layers
+        self.grad_w_averages = [0] * self.nb_layers  #v (en momentum), m (en adam)
+        self.gradsquare_w_averages = [0] * self.nb_layers  #v (en adam)
+        self.grad_b_averages = [0] * self.nb_layers  #v (en momentum), m (en adam)
+        self.gradsquare_b_averages = [0] * self.nb_layers  #v (en adam)
 
         self.delta_w2 = [0] * self.nb_layers
         self.delta_b2 = [0] * self.nb_layers
@@ -272,15 +275,22 @@ class MLP(object):
         if initialize_weights:
             self.init_weights()
             pass
-        
+        #your code here
         def SGD_update():
-            self.weights_list[i] -= epsilon * self.grad_w_list[i]
-            self.biases_list[i] -= epsilon * self.grad_b_list[i]
+            self.weights_list[k] -= eta * self.grad_w_list[k]
+            self.biases_list[k] -= eta * self.grad_b_list[k]
 
         def momentum_update():
+            self.grad_w_averages[k] = gamma * self.grad_w_averages[k] + eta * self.grad_w_list[k]
+            self.grad_b_averages[k] = gamma * self.grad_b_averages[k] + eta * self.grad_b_list[k]
+
+            self.weights_list[k] -= self.grad_W_averages[k]
+            self.biases_list[k] -= self.grad_b_averages[k]
             pass
 
         def adagrad_update():
+            self.weights_list[k] -= eta * self.grad_w_list[k] / np.sqrt(G + epsilon)
+            self.biases_list[k] -= eta * self.grad_b_list[k] / np.sqrt(G + epsilon)
             pass
 
         def RMSprop_update():
@@ -294,6 +304,7 @@ class MLP(object):
 
         def adam_update():
             pass
+        #----
 
         optimizers_dict = {'SGD': SGD_update,
                            'adam': adam_update,
