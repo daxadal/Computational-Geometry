@@ -284,7 +284,7 @@ class MLP(object):
             self.grad_w_averages[k] = gamma * self.grad_w_averages[k] + eta * self.grad_w_list[k]
             self.grad_b_averages[k] = gamma * self.grad_b_averages[k] + eta * self.grad_b_list[k]
 
-            self.weights_list[k] -= self.grad_W_averages[k]
+            self.weights_list[k] -= self.grad_w_averages[k]
             self.biases_list[k] -= self.grad_b_averages[k]
             pass
 
@@ -308,8 +308,10 @@ class MLP(object):
             self.grad_w_averages[k] = gamma * self.grad_w_averages[k] + (1 - gamma) * np.square(self.grad_w_list[k])
             self.grad_b_averages[k] = gamma * self.grad_b_averages[k] + (1 - gamma) * np.square(self.grad_b_list[k])
             
-            self.delta_w2[k] = - self.grad_w_list[k] * np.sqrt(self.delta_w2[k] + epsilon) / np.sqrt(self.grad_w_averages[k] + epsilon)
-            self.delta_b2[k] = - self.grad_b_list[k] * np.sqrt(self.delta_b2[k] + epsilon) / np.sqrt(self.grad_b_averages[k] + epsilon)
+            self.delta_w2[k] = - self.grad_w_list[k] * np.sqrt(np.absolute(self.delta_w2[k]) + epsilon) /  \
+                                np.sqrt(np.absolute(self.grad_w_averages[k]) + epsilon)
+            self.delta_b2[k] = - self.grad_b_list[k] * np.sqrt(np.absolute(self.delta_b2[k]) + epsilon) /  \
+                                np.sqrt(np.absolute(self.grad_b_averages[k]) + epsilon)
 
             self.weights_list[k] += self.delta_w2[k]
             self.biases_list[k] += self.delta_b2[k]
@@ -321,11 +323,12 @@ class MLP(object):
         def adam_update():
             self.grad_w_averages[k] = beta_1 / (1 - beta_1) * self.grad_w_averages[k] + self.grad_w_list[k]
             self.grad_b_averages[k] = beta_1 / (1 - beta_1) * self.grad_b_averages[k] + self.grad_b_list[k]
+            
             self.gradsquare_w_averages[k] = beta_2 / (1 - beta_2) * self.grad_w_averages[k] + self.grad_w_list[k] * self.grad_w_list[k]
             self.gradsquare_b_averages[k] = beta_2 / (1 - beta_2) * self.grad_b_averages[k] + self.grad_b_list[k] * self.grad_b_list[k]
             
-            self.weights_list[k] -= eta * self.grad_w_averages[k] / (np.sqrt(self.gradsquare_w_averages[k]) + epsilon)
-            self.biases_list[k] -= eta * self.grad_b_averages[k] / (np.sqrt(self.gradsquare_b_averages[k]) + epsilon)
+            self.weights_list[k] -= eta * self.grad_w_averages[k] / (np.sqrt(np.absolute(self.gradsquare_w_averages[k])) + epsilon)
+            self.biases_list[k] -= eta * self.grad_b_averages[k] / (np.sqrt(np.absolute(self.gradsquare_b_averages[k])) + epsilon)
             pass
         #----
 
@@ -337,8 +340,9 @@ class MLP(object):
                            'momentum': momentum_update,
                            'nesterov': nesterov_update}
 
-        
+        nb_data = x_data.shape[0]
         index_list = np.arange(nb_data)
+        nb_batches = int(nb_data / batch_size)
         t = 1
         
         for epoch in range(epochs):
