@@ -13,9 +13,6 @@ class MLP(object):
                  activation_functions, diff_activation_functions,
                  init_seed=None):
 
-        """
-        Initialize the parameters for the multilayer perceptron
-        """
         self.K_list = K_list
         self.nb_layers = len(K_list) - 1
 
@@ -30,10 +27,10 @@ class MLP(object):
         self.grad_w_list = None
         self.grad_b_list = None
 
-        self.grad_w_averages = [0] * self.nb_layers  #v (en momentum), m (en adam)
-        self.gradsquare_w_averages = [0] * self.nb_layers  #v (en adam)
-        self.grad_b_averages = [0] * self.nb_layers  #v (en momentum), m (en adam)
-        self.gradsquare_b_averages = [0] * self.nb_layers  #v (en adam)
+        self.grad_w_averages = [0] * self.nb_layers
+        self.gradsquare_w_averages = [0] * self.nb_layers
+        self.grad_b_averages = [0] * self.nb_layers
+        self.gradsquare_b_averages = [0] * self.nb_layers
 
         self.delta_w2 = [0] * self.nb_layers
         self.delta_b2 = [0] * self.nb_layers
@@ -44,76 +41,81 @@ class MLP(object):
 
         self.init_weights()
 
-    #%% definition of activation functions and derivatives
     @staticmethod
     def sigmoid(z):
+        # ->
         return 1 / (1 + np.exp(-z))
-        
+        # <-
+
     @staticmethod
     def dsigmoid(z):
+        # ->
         return MLP.sigmoid(z)*(1 - MLP.sigmoid(z))
+        # <-
 
-    @staticmethod    
+    @staticmethod
     def dtanh(z):
+        # ->
         return 1 - np.tanh(z)**2
+        # <-
 
-    @staticmethod    
+    @staticmethod
     def relu(z):
-        #your code here
+        # ->
         ret = np.copy(z)
         ret[z<0] = 0
         return ret
-        #--------------
-        
-    @staticmethod    
+        # <-
+
+    @staticmethod
     def drelu(z):
-        #your code here
+        # ->
         ret = np.copy(z)
         ret[z<0] = 0
         ret[z>=0] = 1
         return ret
-        #--------------
-        
+        # <-
+
     @staticmethod
     def identity(z):
-        #your code here
+        # ->
         return z
-        #--------------    
+        # <-
+
     @staticmethod
     def didentity(z):
-        #your code here
-        return [1]*z.shape[0]
-        #--------------    
+        # ->
+        return np.ones(z.shape())
+        # <-
+
     @staticmethod
     def softmax(z):
-        #your code here
+        # ->
         exps = np.exp(z)
         exps_sums = np.sum(exps, axis=1)
         return exps / exps_sums[:, np.newaxis]
-        #--------------   
-     #%% cost functions
+        # <-
+
     @staticmethod
     def binary_cross_entropy(y, t_data):
+        # ->
         return -np.sum(t_data * np.log(y) + (1 - t_data) * np.log(1 - y))
-    
+        # <-
     
     @staticmethod
     def softmax_cross_entropy(y, t_data):
-        #your code here
+        # ->
         return -np.sum(t_data * np.log(y))
-        #--------------
-    
+        # <-
+
     @staticmethod
     def cost_L2(y, t_data):
-        #your code here
-        return np.sum((y-t_data)**2)/2
-        #return np.sum( np.linalg.norm(y-t_data)**2 ) / 2
-        #--------------   
+        # ->
+        return np.sum((y-t_data)**2) / 2
+        # <-
 
     def init_weights(self):
-        """ 
-        initialize node weights to random values and node biases to zeros
-        """
+
         if self.init_seed:
             np.random.seed(self.init_seed)
 
@@ -140,88 +142,41 @@ class MLP(object):
         self.weights_list = weights_list
         self.biases_list = biases_list
 
-    #%% feed forward pass
-    def get_activations_and_units(self, x):
-        """
-        This function computes the list of activations, the list of units and the output value
-        activations[i] is given by: units[i].dot(W) + b
-        units[i] is given by: activation_functions[i] (activations[i + 1])
-        the output value is the last elment of the list of units
-
-        Parameters 
-        ------------
-        x : numpy.ndarray
-            input values
+    def get_activations_and_units(self, x, parameters=None):
+        # ->
+        if parameters == None:
+            weights_list = self.weights_list
+            biases_list = self.biases_list
+        else:
+            weights_list, biases_list = parameters
         
-        Examples
-        --------
-        >>> x = np.array([[1,2,3],[4,5,6]])
-        >>> K_list = [3, 1] #final dimension
-        >>> activation_functions = [MLP.sigmoid]
-        >>> diff_activation_functions = [MLP.dsigmoid]
-        >>> mlp = MLP(K_list, activation_functions, diff_activation_functions)
-        >>> mlp.get_activations_and_units(x)
-        >>> mlp.activations
-        [array([[1, 2, 3],
-        [4, 5, 6]]), array([[-0.32823445],
-        [-0.40865953]])]
-        >>> mlp.units
-        [array([[1, 2, 3],
-        [4, 5, 6]]), array([[ 0.52281352],
-        [ 0.77669704]])]
-        """
         activations = [x]
         units = [x]
-        
+
         for i in range(self.nb_layers):
-            #your code here
-            W = self.weights_list[i]
-            b = self.biases_list[i]
+            W = weights_list[i]
+            b = biases_list[i]
             h = self.activation_functions[i]
             activations.append(units[i].dot(W) + b)
             units.append(h(activations[i + 1]))
-        y = units[-1]
-            #----
-        self.activations = activations 
+        
+        self.activations = activations
         self.units = units
-        self.y = y
-    
-    #%% backpropagation 
-    def get_gradients(self, x, t, beta=0):
-        """
-        This function computes gradients of the weights and the errors using backpropagation
+        self.y = units[-1]
+        # <-
+
+    def get_gradients(self, x, t, beta=0, parameters=None):
+        # ->
+        if parameters == None:
+            weights_list = self.weights_list
+            biases_list = self.biases_list
+        else:
+            weights_list, biases_list = parameters
         
-        Parameters 
-        ------------
-        x : numpy.ndarray
-            input values
-        t : numpy.ndarray
-            List of correct results. "1" means red_point and "0" means black_point
+        self.get_activations_and_units(x, parameters=parameters)
         
-        Examples
-        --------
-        >>> x = np.array([[1,2,3],[4,5,6]])
-        >>> K_list = [3, 1] #final dimension
-        >>> activation_functions = [MLP.sigmoid]
-        >>> diff_activation_functions = [MLP.dsigmoid]
-        >>> mlp = MLP(K_list, activation_functions, diff_activation_functions)
-        >>> t = np.array([1,0])
-        >>> mlp.get_gradients(x,t,0)
-        >>> mlp.grad_w_list
-        [array([[-1.69174691,  0.80825309],
-        [-2.37875131,  1.12124869],
-        [-3.06575572,  1.43424428]])]
-        >>> mlp.grad_b_list
-        [array([-0.6870044,  0.3129956])]
-        """
-        self.get_activations_and_units(x)
-    
         N = x.shape[0]
         
-        grad_w_list = []
-        grad_b_list = []
-    
-        #your code here
         delta = self.y-t
         grad_w = np.einsum('ni,nj->nji', delta, self.units[-2])
         grad_w_list = [np.sum(grad_w, axis=0)/N]
@@ -229,19 +184,19 @@ class MLP(object):
         for k in range(self.nb_layers-2, -1, -1):
             delta = np.einsum('ni,ij,nj->ni',
                               self.diff_activation_functions[k](self.activations[k+1]),
-                              self.weights_list[k+1],
+                              weights_list[k+1],
                               delta)
             grad_w = np.einsum('ni,nj->nji', delta, self.units[k])
             grad_w_list.insert(0, np.sum(grad_w, axis=0)/N)
             grad_b_list.insert(0, np.sum(delta, axis=0)/N)
         if beta != 0:
             for i in range(self.nb_layers):
-                grad_w_list[i] += beta * self.weights_list[i]
-                grad_b_list[i] += beta * self.biases_list[i]
-        #----    
+                grad_w_list[i] += beta * weights_list[i]
+                grad_b_list[i] += beta * biases_list[i]
 
         self.grad_w_list = grad_w_list
         self.grad_b_list = grad_b_list
+        # <-
 
     def train(self, x_data, t_data,
               epochs=1000, batch_size=20,
@@ -255,82 +210,117 @@ class MLP(object):
               method='SGD',
               print_cost=False):
 
-        """
-        Everytime we will reorder the list of inputs and use
-        a stochastic process (a collection of batch_size random elements)
-        to train our inputs. We will do it nb_batch times.
-        And update the list of weights and the list of biases
-        Parameters 
-            ------------
-        x_data : numpy.ndarray
-            List of input values
-        t_data : numpy.ndarray
-            List of correct results. "1" means red_point and "0" means black_point
-        epochs : 
-        initialize_weights
-        epsilon : 
-        beta :
-        print_cost    : Bool
-        """
         if initialize_weights:
             self.init_weights()
             pass
-        #your code here
+        
         def SGD_update():
+            # ->
             self.weights_list[k] -= eta * self.grad_w_list[k]
             self.biases_list[k] -= eta * self.grad_b_list[k]
+            # <-
 
         def momentum_update():
-            self.grad_w_averages[k] = gamma * self.grad_w_averages[k] + eta * self.grad_w_list[k]
-            self.grad_b_averages[k] = gamma * self.grad_b_averages[k] + eta * self.grad_b_list[k]
+            # ->
+            self.grad_w_averages[k] *= gamma
+            self.grad_w_averages[k] += eta * self.grad_w_list[k]
+            self.grad_b_averages[k] *= gamma
+            self.grad_b_averages[k] += eta * self.grad_b_list[k]
 
             self.weights_list[k] -= self.grad_w_averages[k]
             self.biases_list[k] -= self.grad_b_averages[k]
-            pass
+            # <-
 
         def adagrad_update():
-            self.grad_w_averages[k] = np.square(self.grad_w_list[k])
-            self.grad_b_averages[k] = np.square(self.grad_b_list[k])
+            # ->
+            self.gradsquare_w_averages[k] += self.grad_w_list[k]**2
+            self.gradsquare_b_averages[k] += self.grad_b_list[k]**2
             
-            self.weights_list[k] -= eta * self.grad_w_list[k] / np.sqrt(self.grad_w_averages[k] + epsilon)
-            self.biases_list[k] -= eta * self.grad_b_list[k] / np.sqrt(self.grad_b_averages[k] + epsilon)
-            pass
+            new_eta = eta / np.sqrt(self.gradsquare_w_averages[k] + epsilon)
+            self.weights_list[k] -= new_eta * self.grad_w_list[k]
+            new_eta = eta / np.sqrt(self.gradsquare_b_averages[k] + epsilon)
+            self.biases_list[k] -= new_eta * self.grad_b_list[k]
+            # <-
 
         def RMSprop_update():
-            self.grad_w_averages[k] = gamma * self.grad_w_averages[k] + (1 - gamma) * np.square(self.grad_w_list[k])
-            self.grad_b_averages[k] = gamma * self.grad_b_averages[k] + (1 - gamma) * np.square(self.grad_b_list[k])
+            # ->
+            self.gradsquare_w_averages[k] *= gamma
+            self.gradsquare_w_averages[k] += (1 - gamma) * self.grad_w_list[k]**2
+            self.gradsquare_b_averages[k] *= gamma
+            self.gradsquare_b_averages[k] += (1 - gamma) * self.grad_b_list[k]**2
             
-            self.weights_list[k] -= eta * self.grad_w_list[k] / np.sqrt(self.grad_w_averages[k] + epsilon)
-            self.biases_list[k] -= eta * self.grad_b_list[k] / np.sqrt(self.grad_b_averages[k] + epsilon)
-            pass
+            new_eta = eta / np.sqrt(self.gradsquare_w_averages[k] + epsilon)
+            self.weights_list[k] -= new_eta * self.grad_w_list[k]
+            new_eta = eta / np.sqrt(self.gradsquare_b_averages[k] + epsilon)
+            self.biases_list[k] -= new_eta * self.grad_b_list[k]
+            # <-
 
         def adadelta_update():
-            self.grad_w_averages[k] = gamma * self.grad_w_averages[k] + (1 - gamma) * np.square(self.grad_w_list[k])
-            self.grad_b_averages[k] = gamma * self.grad_b_averages[k] + (1 - gamma) * np.square(self.grad_b_list[k])
+            # ->
+            self.gradsquare_w_averages[k] *= gamma
+            self.gradsquare_w_averages[k] += (1 - gamma) * self.grad_w_list[k]**2
+            self.gradsquare_b_averages[k] *= gamma
+            self.gradsquare_b_averages[k] += (1 - gamma) * self.grad_b_list[k]**2
             
-            self.delta_w2[k] = - self.grad_w_list[k] * np.sqrt(np.absolute(self.delta_w2[k]) + epsilon) /  \
-                                np.sqrt(np.absolute(self.grad_w_averages[k]) + epsilon)
-            self.delta_b2[k] = - self.grad_b_list[k] * np.sqrt(np.absolute(self.delta_b2[k]) + epsilon) /  \
-                                np.sqrt(np.absolute(self.grad_b_averages[k]) + epsilon)
-
-            self.weights_list[k] += self.delta_w2[k]
-            self.biases_list[k] += self.delta_b2[k]
-            pass
+            delta_w = np.sqrt(self.delta_w2[k] + epsilon) 
+            delta_w /= np.sqrt(self.gradsquare_w_averages[k] + epsilon)
+            delta_w *= self.grad_w_list[k]
+            self.weights_list[k] -= delta_w
+            
+            delta_b = np.sqrt(self.delta_b2[k] + epsilon)
+            delta_b /= np.sqrt(self.gradsquare_b_averages[k] + epsilon)
+            delta_b *= self.grad_b_list[k]
+            self.biases_list[k] -= delta_b
+            
+            self.delta_w2[k] *= gamma
+            self.delta_w2[k] += (1 - gamma) * delta_w**2
+            self.delta_b2[k] *= gamma
+            self.delta_b2[k] += (1 - gamma) * delta_b**2
+            # <-
 
         def nesterov_update():
-            pass
+            # ->
+            new_weights = []
+            new_biases = []
+            
+            for k in range(self.nb_layers):
+                self.grad_w_averages[k] *= gamma
+                self.grad_b_averages[k] *= gamma
+                
+                new_weights.append(self.weights_list[k] - self.grad_w_averages[k])
+                new_biases.append(self.biases_list[k] - self.grad_b_averages[k])
+
+            params = (new_weights, new_biases)
+            self.get_gradients(x_batch, t_batch, beta, parameters=params)
+
+            for k in range(self.nb_layers):
+                self.grad_w_averages[k] += eta * self.grad_w_list[k]
+                self.grad_b_averages[k] += eta * self.grad_b_list[k]
+
+                self.weights_list[k] -= self.grad_w_averages[k]
+                self.biases_list[k] -= self.grad_b_averages[k]
+            # <-
 
         def adam_update():
-            self.grad_w_averages[k] = beta_1 / (1 - beta_1) * self.grad_w_averages[k] + self.grad_w_list[k]
-            self.grad_b_averages[k] = beta_1 / (1 - beta_1) * self.grad_b_averages[k] + self.grad_b_list[k]
-            
-            self.gradsquare_w_averages[k] = beta_2 / (1 - beta_2) * self.grad_w_averages[k] + self.grad_w_list[k] * self.grad_w_list[k]
-            self.gradsquare_b_averages[k] = beta_2 / (1 - beta_2) * self.grad_b_averages[k] + self.grad_b_list[k] * self.grad_b_list[k]
-            
-            self.weights_list[k] -= eta * self.grad_w_averages[k] / (np.sqrt(np.absolute(self.gradsquare_w_averages[k])) + epsilon)
-            self.biases_list[k] -= eta * self.grad_b_averages[k] / (np.sqrt(np.absolute(self.gradsquare_b_averages[k])) + epsilon)
-            pass
-        #----
+            # ->
+            self.grad_w_averages[k] *= beta_1
+            self.grad_w_averages[k] += (1 - beta_1) * self.grad_w_list[k]
+            self.grad_b_averages[k] *= beta_1
+            self.grad_b_averages[k] += (1 - beta_1) * self.grad_b_list[k]
+
+            self.gradsquare_w_averages[k] *= beta_2
+            self.gradsquare_w_averages[k] += (1 - beta_2) * self.grad_w_list[k]**2
+            self.gradsquare_b_averages[k] *= beta_2
+            self.gradsquare_b_averages[k] += (1 - beta_2) * self.grad_b_list[k]**2
+
+            m_w = self.grad_w_averages[k] / (1 - beta_1**t)
+            m_b = self.grad_b_averages[k] / (1 - beta_1**t)
+            v_w = self.gradsquare_w_averages[k] / (1 - beta_2**t)
+            v_b = self.gradsquare_b_averages[k] / (1 - beta_2**t)
+
+            self.weights_list[k] -= (eta / (np.sqrt(v_w) + epsilon)) * m_w
+            self.biases_list[k] -= (eta / (np.sqrt(v_b) + epsilon)) * m_b
+            # <-
 
         optimizers_dict = {'SGD': SGD_update,
                            'adam': adam_update,
@@ -340,11 +330,15 @@ class MLP(object):
                            'momentum': momentum_update,
                            'nesterov': nesterov_update}
 
+        # ->
         nb_data = x_data.shape[0]
+        # <-
         index_list = np.arange(nb_data)
-        nb_batches = int(nb_data / batch_size)
         t = 1
         
+        # ->
+        nb_batches = nb_data // batch_size
+        # <-
         for epoch in range(epochs):
             np.random.shuffle(index_list)
             for batch in range(nb_batches):
@@ -353,11 +347,14 @@ class MLP(object):
                 x_batch = x_data[batch_indices]
                 t_batch = t_data[batch_indices]
 
-                self.get_gradients(x_batch, t_batch, beta)
+                # self.get_gradients(x_batch, t_batch, beta)
 
                 if method == 'nesterov':
                     optimizers_dict[method]()
                 else:
+                    # ->
+                    self.get_gradients(x_batch, t_batch, beta)
+                    # <-
                     for k in range(self.nb_layers):
                         optimizers_dict[method]()
                     t = t + 1
