@@ -321,18 +321,24 @@ class MLP(object):
         function, we will have the results and enough datas to print them
 
         Args:
-        x_data
-        t_data
-        epochs
-        batch_size
-        eta
-        beta
-        gamma
-        beta_1
-        beta_2
-        epsilob
-        method
-        print_cost
+        x_data (real, vector): input value. data for train
+        t_data (real, vector): List of correct results.
+                        "1" means red_point and "0" means black_point
+        epochs: number of the epochs of train
+        batch_size: size of the data to train in every epoch
+        eta (real): learning rate
+        beta (real): a value used to compute the gradients. It is 0 by default
+        gamma (real): fraction of the update vector(momentum term). gamma is
+                        usually 0.9.
+        beta_1 (real): fraction of estimate of the first moment (the mean) of
+                        the gradients
+        beta_2 (real): fraction of estimate of  the second moment
+                        (the uncentered variance) of the gradients
+        epsilon (real): a smoothing term that avoids division by zero
+                        (usually on the order of 1e−8)
+        method (string, dictionary): name of method. It will be used to choose
+                                    the optimization method
+        print_cost (bool): boolean value to print or no the cost.
 
         """
 
@@ -341,12 +347,12 @@ class MLP(object):
         """
         For the block "for" of the function train, we need a update
         of parameters(weights, biases, etc) for every optimization 
-        method using the form of Sebastian's website.
+        method using the form of Sebastian's website
         """
         def SGD_update():
             """
             Here we will update the values of weights and biases. It is the
-            same thing we have done in our MLP.
+            same thing we have done in our MLP
             """
             # ->
             self.weights_list[k] -= eta * self.grad_w_list[k]
@@ -553,7 +559,7 @@ class MLP(object):
             if print_cost:
                 self.get_activations_and_units(x_data)
                 if self.activation_functions[-1] == MLP.sigmoid:
-                    cost = MLP.binary_cross_entropy(self.y, t_data),
+                    cost = MLP.binary_cross_entropy(self.y, t_data)
                     sys.stdout.write('CREcost = % f, epoch = %d\r'
                                      % (cost, epoch))
                     sys.stdout.flush()
@@ -567,4 +573,3 @@ class MLP(object):
                     sys.stdout.write('cost = % f, epoch = %d\r'
                                      % (cost, epoch))
                     sys.stdout.flush()
-
