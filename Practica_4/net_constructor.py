@@ -24,28 +24,10 @@ def NetConstructor(object):
                    'LRN_params': (k, alpha, beta, r)}
         '''
         tf.reset_default_graph()
-        self.layer_dict1d = {'fc': fc_layer1d,
-                             'conv': tf.layers.conv1d,
-                             'maxpool': tf.layers.max_pooling1d,
-                             'dropout': tf.layers.dropout,
-                             'LRN': }
-        self.layer_dict2d = {'fc': fc_layer2d,
-                             'conv': tf.layers.conv2d,
-                             'maxpool': tf.layers.max_pooling2d,
-                             'dropout': tf.layers.dropout,
-                             'LRN': }
-        self.layer_dict3d = {'fc': fc_layer3d,
-                             'conv': tf.layers.conv3d,
-                             'maxpool': tf.layers.max_pooling3d,
-                             'dropout': tf.layers.dropout,
-                             'LRN': }
-        self.layer_dict_list = [self.layer_dict1d,
-                                self.layer_dict2d,
-                                self.layer_dict3d]
         
-        self.init_dict = {'truncated_normal':
+        '''self.init_dict = {'truncated_normal': tf.truncated_normal,
                           'xavier': tf.layers.xavier_initializer,
-                          'he': }        
+                          'he': }'''     
         self.activations_dict = {'relu': tf.nn.relu,
                                  'sigmoid': tf.nn.sigmoid,
                                  'tanh': tf.nn.tanh,
@@ -53,40 +35,86 @@ def NetConstructor(object):
         self.loss_dict = {'softmax': tf.nn.softmax_cross_entropy_with_logits,
                           'identity': tf.nn.l2_loss,
                           'sigmoid': tf.nn.sigmoid_cross_entropy_with_logits}
-        '''self.optimizers_dict = {'SGD': tf.train.GradientDescentOptimizer,
-                                'adam': tf.train.AdamOptimizer,
-                                'adagrad': tf.train.AdagradOptimizer,
-                                'RMS_prop': tf.train.RMSPropOptimizer,
-                                'adadelta': tf.train.AdadeltaOptimizer,
-                                'momentum': tf.train.MomentumOptimizer,
-                                'nesterov': tf.train.MomentumOptimizer} #Poner use_nesterov = True'''
         self.layers = layers
         self.create_net()
-
-    def fc_layer1d(self, unit, dim, activation):
-        h_func = self.activations_dict[activation]
-        with tf.name_scope('fc_layer'):
-            weights_shape = (int(unit.get_shape()[1]), dim)
-            weights = tf.Variable(tf.truncated_normal(weights_shape), name='weights')
-            bias = tf.Variable(tf.zeros(dim), name='bias')
-            activ = tf.add(tf.matmul(unit, weights), bias, name='activation')
-            return h_func(activ, name='unit')
     
     def create_net(self):
+        def index(self, dim):
+                if type(dim) is tuple:
+                    index = len(dim)-1
+                else:
+                    index = 0
+                return index
+        
+        def fc_layer(self, unit, dim, params):
+            if index(dim) == 2: newdim = dim[0] * dim[1] * dim[2]
+            elif index(dim) == 1: newdim = dim[0] * dim[1]
+            else: newdim = dim
+            
+            activate = self.activations_dict[params['activation']]
+            #init = self.init_dict[params['init']]
+            init = tf.truncated_normal(weights_shape)
+            with tf.name_scope('fc_layer'):
+                weights_shape = (int(unit.get_shape()[1]), newdim)
+                weights = tf.Variable(init, name='weights')
+                bias = tf.Variable(tf.zeros(newdim), name='bias')
+                activ = tf.add(tf.matmul(unit, weights), bias, name='activation')
+                return activate(activ, name='unit')
+        
+        def conv_layer(self, unit, dim, params):
+            activation = self.activations_dict[params['activation']]
+            #init = self.init_dict[params['init']]
+            init = tf.layers.xavier_initializer
+            layer_list = [tf.layers.conv1d, tf.layers.conv2d, tf.layers.conv3d]
+            return layer_list[index(dim)](inputs=unit,
+                                    filters=dim,
+                                    kernel_size=params['kernel_size'],
+                                    strides=params['stride'],
+                                    padding=params['padding'],
+                                    activation=activation,
+                                    kernel_initializer=init,
+                                    bias_initializer=init,
+                                    name='conv_layer')
+        
+        def maxpool_layer(self, unit, dim, params):
+            layer_list = [tf.layers.max_pooling1d, tf.layers.max_pooling2d, tf.layers.max_pooling3d]
+            return layer_list[index(dim)](inputs=unit,
+                                    pool_size=params['kernel_size'],
+                                    strides=params['stride'],
+                                    padding=params['padding'],
+                                    name='maxpool_layer')
+                                    
+        def dropout_layer(self, unit, dim, params):
+            return tf.layers.dropout(inputs=unit,
+                                     rate=params['prob'],
+                                     name='dropout_layer')
+        
+        def LRN_layer(self, unit, dim, params):
+            return tf.nn.local_response_normalization(
+                              inputs=unit,
+                              bias=params['LRN_params'][0],
+                              alpha=params['LRN_params'][1],
+                              beta=params['LRN_params'][2],
+                              depth_radius=params['LRN_params'][3],
+                              name='LRN_layer'
+                              
+        self.layer_dict = {'fc': fc_layer
+                           'conv': conv_layer
+                           'maxpool': maxpool_layer
+                           'dropout': dropout_layer
+                           'LRN': LRN_layer}
+                                
         self.x = tf.placeholder(tf.float32, shape= self.layers[0]['dim'], name='x')
         self.y_ = tf.placeholder(tf.float32, shape=self.layers[-1]['dim'], name='y_')
         unit = self.x;
-        for type, dim, activation in zip(self.layers[1: -1]['type'],
+        for type, dim, params in zip(self.layers[1: -1]['type'],
                                      self.layers[1: -1]['dim'],
-                                     self.layers[1: -1]['activation']):
-            layer = self.layer_dict_list[len(dim)-1][type]
-            unit = layer(unit, dim, activation)
+                                     self.layers[1: -1]):
+            layer = choose_layer(dim,type)
+            unit = layer(unit, dim, params)
             
-        type = self.layers[-1]['type']
-        dim = self.layers[-1]['dim']
-        layer = self.layer_dict_list[len(dim)-1][type]
-        unit = layer(unit, dim, activation)
-        self.y = self.fc_layer(unit, dim, 'identity')
+        layer = choose_layer(self.layers[-1]['dim'], self.layers[-1]['type'])
+        self.y = layer(unit, self.layers[-1]['dim'], self.layers[-1]) #la ultima capa debe tener activación identity
     
     def train(self, x_train, t_train,
               nb_epochs=1000,
