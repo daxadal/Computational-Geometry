@@ -1,3 +1,9 @@
+from __future__ import print_function, division
+
+import tensorflow as tf
+import numpy as np
+import sys
+
 def NetConstructor(object):
     def __init__(self, layers):
         '''
@@ -28,10 +34,7 @@ def NetConstructor(object):
         '''self.init_dict = {'truncated_normal': tf.truncated_normal,
                           'xavier': tf.layers.xavier_initializer,
                           'he': }'''     
-        self.activations_dict = {'relu': tf.nn.relu,
-                                 'sigmoid': tf.nn.sigmoid,
-                                 'tanh': tf.nn.tanh,
-                                 'identity': tf.identity}
+        
         self.loss_dict = {'softmax': tf.nn.softmax_cross_entropy_with_logits,
                           'identity': tf.nn.l2_loss,
                           'sigmoid': tf.nn.sigmoid_cross_entropy_with_logits}
@@ -40,18 +43,16 @@ def NetConstructor(object):
     
     def create_net(self):
         def index(self, dim):
-                if type(dim) is tuple:
-                    index = len(dim)-1
-                else:
-                    index = 0
-                return index
+            if type(dim) is tuple: index = len(dim)-1
+            else: index = 0
+            return index
         
         def fc_layer(self, unit, dim, params):
             if index(dim) == 2: newdim = dim[0] * dim[1] * dim[2]
             elif index(dim) == 1: newdim = dim[0] * dim[1]
             else: newdim = dim
             
-            activate = self.activations_dict[params['activation']]
+            activate = activations_dict[params['activation']]
             #init = self.init_dict[params['init']]
             init = tf.truncated_normal(weights_shape)
             with tf.name_scope('fc_layer'):
@@ -62,7 +63,7 @@ def NetConstructor(object):
                 return activate(activ, name='unit')
         
         def conv_layer(self, unit, dim, params):
-            activation = self.activations_dict[params['activation']]
+            activation = activations_dict[params['activation']]
             #init = self.init_dict[params['init']]
             init = tf.layers.xavier_initializer
             layer_list = [tf.layers.conv1d, tf.layers.conv2d, tf.layers.conv3d]
@@ -96,13 +97,17 @@ def NetConstructor(object):
                               alpha=params['LRN_params'][1],
                               beta=params['LRN_params'][2],
                               depth_radius=params['LRN_params'][3],
-                              name='LRN_layer'
+                              name='LRN_layer')
                               
-        self.layer_dict = {'fc': fc_layer
-                           'conv': conv_layer
-                           'maxpool': maxpool_layer
-                           'dropout': dropout_layer
+        layer_dict = {'fc': fc_layer,
+                           'conv': conv_layer,
+                           'maxpool': maxpool_layer,
+                           'dropout': dropout_layer,
                            'LRN': LRN_layer}
+        activations_dict = {'relu': tf.nn.relu,
+                                 'sigmoid': tf.nn.sigmoid,
+                                 'tanh': tf.nn.tanh,
+                                 'identity': tf.identity}
                                 
         self.x = tf.placeholder(tf.float32, shape= self.layers[0]['dim'], name='x')
         self.y_ = tf.placeholder(tf.float32, shape=self.layers[-1]['dim'], name='y_')
@@ -110,17 +115,17 @@ def NetConstructor(object):
         for type, dim, params in zip(self.layers[1: -1]['type'],
                                      self.layers[1: -1]['dim'],
                                      self.layers[1: -1]):
-            layer = choose_layer(dim,type)
+            layer = layer_dict[type]
             unit = layer(unit, dim, params)
             
-        layer = choose_layer(self.layers[-1]['dim'], self.layers[-1]['type'])
+        layer = layer_dict(self.layers[-1]['type'])
         self.y = layer(unit, self.layers[-1]['dim'], self.layers[-1]) #la ultima capa debe tener activación identity
     
     def train(self, x_train, t_train,
               nb_epochs=1000,
               batch_size=10,
-              method=('adam', method_params)
-              seed=seed_nb):
+              method=('SGD', {'eta': 0.1}),
+              seed=tf.set_random_seed(1)):
         '''
         El método train entrenará la red, recibiendo los datos de entrenamiento,
         número de epochs, tamaño del batch, una semilla opcional para el
@@ -188,6 +193,7 @@ def NetConstructor(object):
                            'adadelta': adadelta_adapter,
                            'momentum': momentum_adapter,
                            'nesterov': nesterov_adapter}
+                           
         with tf.name_scope('loss'):
             method_class = optimizers_dict[method[0]]
             loss_fn = self.loss_dict[self.layers[-1]['activation']]
@@ -238,14 +244,18 @@ def NetConstructor(object):
         return y_pred
 
 
-if __name__ == "__main":
+if __name__ == "__main__":
+    nb_black = 15
+    nb_red = 15
+    nb_data = nb_black + nb_red
+    x_data_black = np.random.randn(nb_black, 2) + np.array([0, 0])
+    x_data_red = np.random.randn(nb_red, 2) + np.array([10, 10])
+    x_data = np.vstack((x_data_black, x_data_red))
+    t_data = np.asarray([0]*nb_black + [1]*nb_red).reshape(nb_data, 1)
+    
     layer_0 = {'dim': 30}
     layer_1 = {'type': 'fc', 'dim': 50, 'activation': 'sigmoid'}
     layer_2 = {'type': 'fc', 'dim': 10, 'activation': 'sigmoid'}
     layer_list = [layer_0, layer_1, layer_2]
-    net = NetConstructor(layer_list);
-   
-
- 
-
-
+    net = NetConstructor(layer_list)
+    net.train(x_data, t_data)
