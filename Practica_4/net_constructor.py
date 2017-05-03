@@ -17,10 +17,13 @@ class NetConstructor(object):
                           'identity': tf.nn.l2_loss,
                           'sigmoid': tf.nn.sigmoid_cross_entropy_with_logits}
         for i in range(len(layers)):
-            if type(layers[i]['dim']) is int:
-                layers[i]['dim'] = (layers[i]['dim'],)
+            if 'dim' in layers[i]:
+                if type(layers[i]['dim']) is int:
+                    layers[i]['dim'] = (layers[i]['dim'],)
             if not ('init' in layers[i]):
                 layers[i]['init'] = 'truncated_normal'
+            if not ('r' in layers[i]):
+                layers[i]['r'] = 2
         self.layers = layers
         self.create_net()
     
@@ -36,22 +39,25 @@ class NetConstructor(object):
                 ret *= l[i]
             return ret
         
-        def fc_layer(unit, dim, params):
+        def fc_layer():
             '''
             if index(dim) == 2: newdim = dim[0] * dim[1] * dim[2]
             elif index(dim) == 1: newdim = dim[0] * dim[1]
             else: newdim = dim
             '''
-
+            
+            params = layer
+            dim = params['dim']
+            
             h = activations_dict[params['activation']]
             flat_dim = reduce_mul(dim)
             #final_dim = list((int(unit.get_shape()[0]),) + dim)
             unit_dim = [-1] + [reduce_mul(unit.get_shape().as_list()[1:])]
             final_dim = list((-1,)+dim)
             #
-            init = self.init_dict[params['init']]
-            #init = tf.truncated_normal(weights_shape)
             with tf.name_scope('fc_layer'):
+                init = self.init_dict[params['init']]
+                #init = tf.truncated_normal(weights_shape)
                 reshaped_unit = tf.reshape(unit, unit_dim)
                 weights_shape = (unit_dim[1], flat_dim)
                 #weights = tf.Variable(tf.truncated_normal(weights_shape), name='weights')
@@ -60,15 +66,18 @@ class NetConstructor(object):
                 activ = tf.add(tf.matmul(reshaped_unit, weights), bias, name='activation')
                 return h(tf.reshape(activ, final_dim), name='unit')
         
-        def conv_layer(unit, dim, params):
+        def conv_layer():
+            params = layer
+
             activation = activations_dict[params['activation']]
             #init = self.init_dict[params['init']]
             init = tf.contrib.layers.xavier_initializer()
             layer_list = [tf.layers.conv1d, tf.layers.conv2d, tf.layers.conv3d]
             #index(dim) o len(params['kernel_size'])
-            conv_dim = len(params['kernel_size'])
+            conv_dim = len(params['kernel_size']) - 1
             return layer_list[conv_dim](inputs=unit,
-                                        filters=dim,
+                                        filters=params['channels'],
+                                        #filters=int(unit.get_shape()[conv_dim+1]),
                                         kernel_size=params['kernel_size'],
                                         strides=params['stride'],
                                         padding=params['padding'],
@@ -77,27 +86,33 @@ class NetConstructor(object):
                                         bias_initializer=init,
                                         name='conv_layer')
         
-        def maxpool_layer(unit, dim, params):
+        def maxpool_layer():
+            params = layer
+
             layer_list = [tf.layers.max_pooling1d, tf.layers.max_pooling2d, tf.layers.max_pooling3d]
-            conv_dim = len(params['kernel_size'])
+            conv_dim = len(params['ksize']) - 1
             return layer_list[conv_dim](inputs=unit,
-                                    pool_size=params['kernel_size'],
-                                    strides=params['stride'],
+                                    pool_size=params['ksize'],
+                                    strides=params['strides'],
                                     padding=params['padding'],
                                     name='maxpool_layer')
                                     
-        def dropout_layer(unit, dim, params):
+        def dropout_layer():
+            params = layer
+
             return tf.layers.dropout(inputs=unit,
                                      rate=params['prob'],
                                      name='dropout_layer')
         
-        def LRN_layer(unit, dim, params):
+        def LRN_layer():
+            params = layer
+
             return tf.nn.local_response_normalization(
-                              inputs=unit,
-                              bias=params['LRN_params'][0],
-                              alpha=params['LRN_params'][1],
-                              beta=params['LRN_params'][2],
-                              depth_radius=params['LRN_params'][3],
+                              input=unit,
+                              bias=params['k'],
+                              alpha=params['alpha'],
+                              beta=params['beta'],
+                              depth_radius=params['r'],
                               name='LRN_layer')
                               
         layer_dict = {'fc': fc_layer,
@@ -120,12 +135,13 @@ class NetConstructor(object):
         unit = self.x;
         for layer in self.layers[1:-1]:
             layer_type = layer_dict[layer['type']]
-            unit = layer_type(unit, layer['dim'], layer)
+            unit = layer_type()
             
         layer_type = layer_dict[self.layers[-1]['type']]
         self.last_activation = self.layers[-1]['activation']
         self.layers[-1]['activation'] = 'identity'
-        self.logits = layer_type(unit, self.layers[-1]['dim'], self.layers[-1]) #la ultima capa debe tener activacion identity
+        layer = self.layers[-1]
+        self.logits = layer_type() #la ultima capa debe tener activacion identity
     
     def train(self, x_train, t_train,
               nb_epochs=1000,
@@ -195,10 +211,10 @@ class NetConstructor(object):
             optimizer = method_class(method[1], name='optimizer')
             self.train_step = optimizer.minimize(self.loss, name='train_step')
 
-        self.init = tf.global_variables_initializer()
 
         self.saver = tf.train.Saver()
         file_writer = tf.summary.FileWriter(LOG_DIR, tf.get_default_graph())
+        self.init = tf.global_variables_initializer()
         
         nb_data = x_train.shape[0]
         index_list = np.arange(nb_data)
