@@ -13,25 +13,24 @@ class NetConstructor(object):
     def __init__(self, layers):
         tf.reset_default_graph()
         
-        self.loss_dict = {'softmax': tf.nn.softmax_cross_entropy_with_logits,
-                          'identity': tf.nn.l2_loss,
-                          'sigmoid': tf.nn.sigmoid_cross_entropy_with_logits}
-        for i in range(len(layers)):
-            if 'dim' in layers[i]:
-                if type(layers[i]['dim']) is int:
-                    layers[i]['dim'] = (layers[i]['dim'],)
-            if not ('init' in layers[i]):
-                layers[i]['init'] = 'truncated_normal'
-            if not ('r' in layers[i]):
-                layers[i]['r'] = 2
+        if type(layers[0]['dim']) is int:
+            layers[0]['dim'] = (layers[0]['dim'],)
         self.layers = layers
+
+        self.activations_dict = {'relu': tf.nn.relu,
+                                 'sigmoid': tf.nn.sigmoid,
+                                 'tanh': tf.nn.tanh,
+                                 'identity': tf.identity,
+                                 'softmax': tf.nn.softmax}
+
         self.create_net()
     
     def create_net(self):
-        def index(dim):
-            if type(dim) is tuple: index = len(dim)-1
-            else: index = 0
-            return index
+        def init_tn(shape, w_or_b):
+            return tf.truncated_normal(shape, stddev=layer['stddev_' + w_or_b])
+
+        def init_zeros(shape, w_or_b=None):
+            return tf.zeros(shape)
 
         def reduce_mul(l):
             ret = 1
@@ -40,108 +39,94 @@ class NetConstructor(object):
             return ret
         
         def fc_layer():
-            '''
-            if index(dim) == 2: newdim = dim[0] * dim[1] * dim[2]
-            elif index(dim) == 1: newdim = dim[0] * dim[1]
-            else: newdim = dim
-            '''
-            
-            params = layer
-            dim = params['dim']
-            
-            h = activations_dict[params['activation']]
-            flat_dim = reduce_mul(dim)
-            #final_dim = list((int(unit.get_shape()[0]),) + dim)
-            unit_dim = [-1] + [reduce_mul(unit.get_shape().as_list()[1:])]
-            final_dim = list((-1,)+dim)
-            #
             with tf.name_scope('fc_layer'):
-                init = self.init_dict[params['init']]
-                #init = tf.truncated_normal(weights_shape)
-                reshaped_unit = tf.reshape(unit, unit_dim)
-                weights_shape = (unit_dim[1], flat_dim)
-                #weights = tf.Variable(tf.truncated_normal(weights_shape), name='weights')
-                weights = tf.Variable(init(weights_shape), name='weights')
-                bias = tf.Variable(tf.zeros(flat_dim), name='bias')
-                activ = tf.add(tf.matmul(reshaped_unit, weights), bias, name='activation')
-                return h(tf.reshape(activ, final_dim), name='unit')
-        
-        def conv_layer():
-            params = layer
+                dim = layer['dim']
 
-            activation = activations_dict[params['activation']]
-            #init = self.init_dict[params['init']]
-            init = tf.contrib.layers.xavier_initializer()
-            layer_list = [tf.layers.conv1d, tf.layers.conv2d, tf.layers.conv3d]
-            #index(dim) o len(params['kernel_size'])
-            conv_dim = len(params['kernel_size']) - 1
-            return layer_list[conv_dim](inputs=unit,
-                                        filters=params['channels'],
-                                        #filters=int(unit.get_shape()[conv_dim+1]),
-                                        kernel_size=params['kernel_size'],
-                                        strides=params['stride'],
-                                        padding=params['padding'],
-                                        activation=activation,
-                                        kernel_initializer=init,
-                                        bias_initializer=init,
-                                        name='conv_layer')
+                h = self.activations_dict[layer['activation']]
+                init_w = init_dict[layer['init_w']]
+                init_b = init_dict[layer['init_b']]
+
+                unit_dim = [-1] + [reduce_mul(unit.get_shape().as_list()[1:])]
+                reshaped_unit = tf.reshape(unit, unit_dim)
+                weights_shape = (unit_dim[1], dim)
+
+                weights = tf.Variable(init_w(weights_shape, w_or_b='w'), name='weights')
+                bias = tf.Variable(init_b(dim, w_or_b='b'), name='bias')
+
+                activ = tf.add(tf.matmul(reshaped_unit, weights), bias, name='activation')
+                return h(activ, name='unit')
+        
+        def conv_layer():   
+            with tf.name_scope('conv_layer'):
+                h = self.activations_dict[layer['activation']]
+                init_w = init_dict[layer['init_w']]
+                init_b = init_dict[layer['init_b']]
+
+                filter_size = layer['k_size']+(int(unit.get_shape()[3]), layer['channels'])
+
+                filter = tf.Variable(init_w(filter_size, w_or_b='w'), name='filter')
+
+                aux = tf.nn.conv2d(input=unit,
+                                    filter=filter,
+                                    strides=(1,) + layer['strides'] + (1,),
+                                    padding=layer['padding'],   
+                                    name='activation_before_bias')
+
+                biases = tf.Variable(init_b(layer['channels'], w_or_b='b'), name='biases')
+
+                activ = tf.nn.bias_add(aux, biases, name='activation')
+                return h(activ, name='unit')
         
         def maxpool_layer():
-            params = layer
-
-            layer_list = [tf.layers.max_pooling1d, tf.layers.max_pooling2d, tf.layers.max_pooling3d]
-            conv_dim = len(params['ksize']) - 1
-            return layer_list[conv_dim](inputs=unit,
-                                    pool_size=params['ksize'],
-                                    strides=params['strides'],
-                                    padding=params['padding'],
-                                    name='maxpool_layer')
+            with tf.name_scope('maxpool_layer'):
+                return tf.nn.max_pool(value=unit,
+                                      ksize=(1,) + layer['k_size'] + (1,),
+                                      strides=(1,) + layer['strides'] + (1,),
+                                      padding=layer['padding'],
+                                      name='maxpool_layer')
                                     
         def dropout_layer():
-            params = layer
-
-            return tf.layers.dropout(inputs=unit,
-                                     rate=params['prob'],
+            with tf.name_scope('dropout_layer'):
+                return tf.nn.dropout(x=unit,
+                                     keep_prob=layer['prob'],
                                      name='dropout_layer')
         
         def LRN_layer():
-            params = layer
-
-            return tf.nn.local_response_normalization(
-                              input=unit,
-                              bias=params['k'],
-                              alpha=params['alpha'],
-                              beta=params['beta'],
-                              depth_radius=params['r'],
-                              name='LRN_layer')
+            with tf.name_scope('LRN_layer'):
+                return tf.nn.local_response_normalization(
+                                  input=unit,
+                                  bias=layer['k'],
+                                  alpha=layer['alpha'],
+                                  beta=layer['beta'],
+                                  depth_radius=layer['r'],
+                                  name='LRN_layer')
                               
         layer_dict = {'fc': fc_layer,
                       'conv': conv_layer,
                       'maxpool': maxpool_layer,
                       'dropout': dropout_layer,
                       'LRN': LRN_layer}
-        activations_dict = {'relu': tf.nn.relu,
-                            'sigmoid': tf.nn.sigmoid,
-                            'tanh': tf.nn.tanh,
-                            'identity': tf.identity,
-                            'softmax': tf.nn.softmax}
-        self.init_dict = {'truncated_normal': tf.truncated_normal_initializer(),
-                          'xavier': tf.contrib.layers.xavier_initializer(),
-                          'he': tf.contrib.keras.initializers.he_normal()} # or uniform?
+        init_dict = {'truncated_normal': init_tn,
+                     'zeros': init_zeros}
         
                                 
         self.x = tf.placeholder(tf.float32, shape=(None,)+self.layers[0]['dim'], name='x')
-        self.y_ = tf.placeholder(tf.float32, shape=(None,)+self.layers[-1]['dim'], name='y_')
+        self.y_ = tf.placeholder(tf.float32, shape=(None,self.layers[-1]['dim']), name='y_')
         unit = self.x;
+
         for layer in self.layers[1:-1]:
-            layer_type = layer_dict[layer['type']]
-            unit = layer_type()
+            layer_funct = layer_dict[layer['type']]
+            unit = layer_funct()
             
-        layer_type = layer_dict[self.layers[-1]['type']]
-        self.last_activation = self.layers[-1]['activation']
-        self.layers[-1]['activation'] = 'identity'
+
         layer = self.layers[-1]
-        self.logits = layer_type() #la ultima capa debe tener activacion identity
+
+        layer_funct = layer_dict[layer['type']]
+
+        self.last_activation = layer['activation']
+        layer['activation'] = 'identity'
+
+        self.logits = layer_funct()
     
     def train(self, x_train, t_train,
               nb_epochs=1000,
@@ -158,27 +143,26 @@ class NetConstructor(object):
                 learning_rate=params['eta'],
                 beta1=params['beta_1'],
                 beta2=params['beta_2'],
-                epsilon=params['eps'],
+                epsilon=params['epsilon'],
                 name=name)
                 
         def adagrad_adapter(params, name):
             return tf.train.AdagradOptimizer(
                 learning_rate=params['eta'],
-                #initial_accumulator_value=0.1,
                 name=name)
                     
         def RMS_adapter(params, name):
             return tf.train.RMSPropOptimizer(
                 learning_rate=params['eta'],
                 decay=params['gamma'],
-                epsilon=params['eps'],
+                epsilon=params['epsilon'],
                 name=name)
                 
         def adadelta_adapter(params, name):
             return tf.train.AdadeltaOptimizer(
                 learning_rate=params['eta'],
                 rho=params['gamma'],
-                epsilon=params['eps'],
+                epsilon=params['epsilon'],
                 name=name)
                 
         def momentum_adapter(params, name):
@@ -194,6 +178,9 @@ class NetConstructor(object):
                 use_nesterov=True,
                 name=name)
                 
+        loss_dict = {'softmax': tf.nn.softmax_cross_entropy_with_logits,
+                     'identity': tf.nn.l2_loss,
+                     'sigmoid': tf.nn.sigmoid_cross_entropy_with_logits}
         optimizers_dict = {'SGD': SGD_adapter,
                            'adam': adam_adapter,
                            'adagrad': adagrad_adapter,
@@ -204,11 +191,13 @@ class NetConstructor(object):
                            
         with tf.name_scope('loss'):
             method_class = optimizers_dict[method[0]]
-            loss_fn = self.loss_dict[self.last_activation]
-            self.loss = tf.reduce_mean(loss_fn(logits=self.logits,
-                                              labels=self.y_),
-                                       name='loss')
             optimizer = method_class(method[1], name='optimizer')
+
+            loss_funct = loss_dict[self.last_activation]
+            self.loss = tf.reduce_mean(loss_funct(logits=self.logits,
+                                                  labels=self.y_),
+                                       name='loss')
+
             self.train_step = optimizer.minimize(self.loss, name='train_step')
 
 
@@ -222,6 +211,7 @@ class NetConstructor(object):
 
         with tf.Session() as sess:
             sess.run(self.init)
+
             for epoch in range(nb_epochs):
                 np.random.shuffle(index_list)
                 for batch in range(nb_batches):
@@ -229,21 +219,26 @@ class NetConstructor(object):
                                                (batch + 1) * batch_size]
                     x_batch = x_train[batch_indices, :]
                     t_batch = t_train[batch_indices, :]
+
                     sess.run(self.train_step,
                              feed_dict={self.x: x_batch,
                                         self.y_: t_batch})
+
                 cost = sess.run(self.loss, feed_dict={self.x: x_train,
                                                       self.y_: t_train})
                 sys.stdout.write('cost=%f %d\r' % (cost, epoch))
                 sys.stdout.flush()
+
             self.saver.save(sess, "./MLP.ckpt")
         
 
     def predict(self, x_test):
         with tf.Session() as sess:
             self.saver.restore(sess, "./MLP.ckpt")
-            pred = self.last_activation(self.logits)
+
+            pred = self.activations_dict[self.last_activation](self.logits)
             y_pred = sess.run(pred, feed_dict={self.x: x_test})
+
         return y_pred
 
 

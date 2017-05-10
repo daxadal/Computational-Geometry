@@ -1,3 +1,5 @@
+from __future__ import division
+
 import os
 import cPickle
 
@@ -70,61 +72,83 @@ if __name__ == '__main__':
 
     layer_dict[1] = {'type': 'conv',
                      'channels': 64,
-                     'kernel_size': (5, 5),
-                     'stride': (1, 1),
+                     'k_size': (5, 5),
+                     'strides': (1, 1),
                      'padding': 'SAME',
-                     'activation': 'relu'}
+                     'activation': 'relu',
+                     'init_w': 'truncated_normal',
+                     'stddev_w': 1.0,
+                     'init_b': 'zeros'}
 
     layer_dict[2] = {'type': 'maxpool',
-                     'ksize': (3, 3),
+                     'k_size': (3, 3),
                      'strides': (2, 2),
                      'padding': 'SAME'}
 
     layer_dict[3] = {'type': 'LRN',
                      'k': 1.0,
                      'alpha': 0.001 / 9.0,
-                     'beta': 0.75}
+                     'beta': 0.75,
+                     'r': 4.0}
 
     layer_dict[4] = {'type': 'conv',
                      'channels': 64,
-                     'kernel_size': (5, 5),
-                     'stride': (1, 1),
+                     'k_size': (5, 5),
+                     'strides': (1, 1),
                      'padding': 'SAME',
-                     'activation': 'relu'}
+                     'activation': 'relu',
+                     'init_w': 'truncated_normal',
+                     'stddev_w': 1.0,
+                     'init_b': 'zeros'}
 
     layer_dict[5] = {'type': 'LRN',
-                     'k': 4.0,
+                     'k': 1.0,
                      'alpha': 0.001 / 9.0,
-                     'beta': 0.75}
+                     'beta': 0.75,
+                     'r': 4.0}
 
 
     layer_dict[6] = {'type': 'maxpool',
-                     'ksize': (3, 3),
+                     'k_size': (3, 3),
                      'strides': (2, 2),
                      'padding': 'SAME'}
 
  
     layer_dict[7] = {'type': 'fc',
                      'dim': 384,
-                     'activation': 'relu'}
+                     'activation': 'relu',
+                     'init_w': 'truncated_normal',
+                     'stddev_w': 1.0,
+                     'init_b': 'zeros'}
 
     layer_dict[8] = {'type': 'fc',
                      'dim': 192,
-                     'activation': 'relu'}
+                     'activation': 'relu',
+                     'init_w': 'truncated_normal',
+                     'stddev_w': 1.0,
+                     'init_b': 'zeros'}
 
     layer_dict[9] = {'type': 'fc',
                      'dim': 10,
-                     'activation': 'softmax'}
+                     'activation': 'softmax',
+                     'init_w': 'truncated_normal',
+                     'stddev_w': 1.0,
+                     'init_b': 'zeros'}
 
     nb_layers = len(layer_dict.keys())
     layer_list = [layer_dict[k] for k in range(nb_layers)]
 
     nnet = NetConstructor(layer_list)
 
-    TRAIN = False
+    
+    TRAIN = True
     if TRAIN:
         nnet.train(x_data, t_data,
-                   method=('adam', {'eta': 0.001}),  # , 'beta_1': 0.9, 'beta_2': 0.999, 'eps': 1e-8
+                   method=('adam',
+                           {'eta': 0.001,
+                            'beta_1': 0.9,
+                            'beta_2': 0.999,
+                            'epsilon': 1e-8}),
                    nb_epochs=1000,
                    batch_size=128)
 
@@ -133,7 +157,5 @@ if __name__ == '__main__':
     true_classes = np.argmax(t_test, axis=1)
     pred_classes = np.argmax(pred, axis=1)
 
-
-    nb_good_pred = np.sum(np.equal(true_classes, classes))
-
+    nb_good_pred = np.sum(np.equal(true_classes, pred_classes))
     print(nb_good_pred / 10000) # aprox 0.66 %
