@@ -235,6 +235,7 @@ class NetConstructor(object):
 
         with tf.Session() as sess:
             if load:
+                sess.run(self.init)
                 self.saver.restore(sess, "./MLP.ckpt")
             else:
                 sess.run(self.init)
