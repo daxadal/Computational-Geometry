@@ -94,20 +94,39 @@ class NetConstructor(object):
         def LRN_layer():
             with tf.name_scope('LRN_layer'):
                 return tf.nn.local_response_normalization(
-                                  input=unit,
-                                  bias=layer['k'],
-                                  alpha=layer['alpha'],
-                                  beta=layer['beta'],
-                                  depth_radius=layer['r'],
-                                  name='LRN_layer')
+                    input=unit,
+                    bias=layer['k'],
+                    alpha=layer['alpha'],
+                    beta=layer['beta'],
+                    depth_radius=layer['r'],
+                    name='LRN_layer')
+
+        def BN_layer():
+            with tf.name_scope('BN_layer'):
+                mean, variance = tf.nn.moments(unit, [0], keep_dims=True)
+                offset = tf.Variable(tf.zeros(mean.get_shape()), name='offset')
+                scale = tf.Variable(tf.ones(variance.get_shape()), name='scale')
+                return tf.nn.batch_normalization(
+                    x=unit,
+                    mean=mean,
+                    variance=variance,
+                    offset=offset,
+                    scale=scale,
+                    variance_epsilon=1e-8,
+                    name='BN_layer')
+                    
                               
         layer_dict = {'fc': fc_layer,
                       'conv': conv_layer,
                       'maxpool': maxpool_layer,
                       'dropout': dropout_layer,
-                      'LRN': LRN_layer}
+                      'LRN': LRN_layer,
+                      'BN': BN_layer}
         init_dict = {'truncated_normal': init_tn,
                      'zeros': init_zeros}
+        loss_dict = {'softmax': tf.nn.softmax_cross_entropy_with_logits,
+                     'identity': tf.nn.l2_loss,
+                     'sigmoid': tf.nn.sigmoid_cross_entropy_with_logits}
         
                                 
         self.x = tf.placeholder(tf.float32, shape=(None,)+self.layers[0]['dim'], name='x')
@@ -127,12 +146,28 @@ class NetConstructor(object):
         layer['activation'] = 'identity'
 
         self.logits = layer_funct()
+        
+        layer['activation'] = self.last_activation
+    
+        with tf.name_scope('loss'):
+            loss_funct = loss_dict[self.last_activation]
+            self.loss = tf.reduce_mean(loss_funct(logits=self.logits,
+                                                  labels=self.y_),
+                                       name='loss')
+        
+        self.saver = tf.train.Saver()
+        file_writer = tf.summary.FileWriter(LOG_DIR, tf.get_default_graph())
     
     def train(self, x_train, t_train,
               nb_epochs=1000,
               batch_size=10,
               method=('SGD', {'eta': 0.1}),
-              seed=tf.set_random_seed(1)):
+              seed=tf.set_random_seed(1),
+              use_validation=False,
+              x_val=None,
+              t_val=None,
+              show_cost=True,
+              load=False):
         def SGD_adapter(params, name):
             return tf.train.GradientDescentOptimizer(
                 learning_rate=params['eta'],
@@ -178,9 +213,6 @@ class NetConstructor(object):
                 use_nesterov=True,
                 name=name)
                 
-        loss_dict = {'softmax': tf.nn.softmax_cross_entropy_with_logits,
-                     'identity': tf.nn.l2_loss,
-                     'sigmoid': tf.nn.sigmoid_cross_entropy_with_logits}
         optimizers_dict = {'SGD': SGD_adapter,
                            'adam': adam_adapter,
                            'adagrad': adagrad_adapter,
@@ -189,20 +221,12 @@ class NetConstructor(object):
                            'momentum': momentum_adapter,
                            'nesterov': nesterov_adapter}
                            
-        with tf.name_scope('loss'):
+        with tf.name_scope('train'):
             method_class = optimizers_dict[method[0]]
             optimizer = method_class(method[1], name='optimizer')
 
-            loss_funct = loss_dict[self.last_activation]
-            self.loss = tf.reduce_mean(loss_funct(logits=self.logits,
-                                                  labels=self.y_),
-                                       name='loss')
-
             self.train_step = optimizer.minimize(self.loss, name='train_step')
 
-
-        self.saver = tf.train.Saver()
-        file_writer = tf.summary.FileWriter(LOG_DIR, tf.get_default_graph())
         self.init = tf.global_variables_initializer()
         
         nb_data = x_train.shape[0]
@@ -210,7 +234,10 @@ class NetConstructor(object):
         nb_batches = nb_data // batch_size
 
         with tf.Session() as sess:
-            sess.run(self.init)
+            if load:
+                self.saver.restore(sess, "./MLP.ckpt")
+            else:
+                sess.run(self.init)
 
             for epoch in range(nb_epochs):
                 np.random.shuffle(index_list)
@@ -224,8 +251,14 @@ class NetConstructor(object):
                              feed_dict={self.x: x_batch,
                                         self.y_: t_batch})
 
-                cost = sess.run(self.loss, feed_dict={self.x: x_train,
-                                                      self.y_: t_train})
+                cost = 0.0
+                if use_validation:
+                    cost = sess.run(self.loss, feed_dict={self.x: x_val,
+                                                      self.y_: t_val})
+                else:
+                    if show_cost:
+                        cost = sess.run(self.loss, feed_dict={self.x: x_train,
+                                                              self.y_: t_train})
                 sys.stdout.write('cost=%f %d\r' % (cost, epoch))
                 sys.stdout.flush()
 
